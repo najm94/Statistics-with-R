@@ -1,0 +1,167 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(plyr)
+library(dplyr)
+
+```
+
+### Load data
+
+
+
+```{r load-data}
+getwd()
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+(Source:)
+The Behavioral Risk Factor Surveillance System (BRFSS) is a collaborative project between all of the states in the United States (US) and participating US territories and the Centers for Disease Control and Prevention (CDC).BRFSS is an ongoing surveillance system designed to measure behavioral risk factors for the non-institutionalized adult population (18 years of age and older) residing in the US. 
+
+BRFSS conducts both landline telephone- and cellular telephone-based surveys. In conducting the BRFSS landline telephone survey, interviewers collect data from a randomly selected adult in a household. In conducting the cellular telephone version of the BRFSS questionnaire, interviewers collect data from an adult who participates by using a cellular telephone and resides in a private residence or college housing.
+The followin are the observations made:
+
+1.Stratified sampling has been used
+
+2.Since its an observational study,the results are generalizable to the population at large
+
+3.There is no random assignment.So causal conclusions cannot be made in this case
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+Who spends more time in physical activities in a week?Males of females?
+Variables used-
+sex
+pa1min_
+
+**Research quesion 2:**
+How prevalant is smoking and drinking among pregnant women?Is the level of highest education obtained a factor in making informed decision with respect to smoking?
+Variables used-
+pregnant
+X_educag
+avedrnk2
+X_rfsmok3
+
+**Research quesion 3:**
+Is there a correlation between the number of working hours in a week and number of days in which physical or mental health is not good?Further,are there any noticeable differences in the correlation between genders?
+Variables used-
+scntlwk1
+poorhlth
+
+* * *
+
+## Part 3: Exploratory data analysis
+**Research quesion 1:**
+
+```{r}
+hist(brfss2013$pa1min_,xlim=c(0,20000),breaks=seq(0,82000,by=100),main="Distribution of minutes of physical activity in a week",xlab="Physical activity in minutes")
+
+```
+
+Since the distribution is skewed,median is a better descriptive measure.
+
+```{r}
+boxplot(brfss2013$pa1min_~brfss2013$sex,ylim=c(0,2000),main="Distibution of minutes of physical activity in a week by gender")
+```
+
+Since its not easily obvious from th plot,lets calculate the summary statistic by gender
+
+```{r}
+
+brfss2013%>%group_by(sex)%>%summarise(median_value=median(pa1min_,na.rm=TRUE)
+                                      ,n=n())
+```
+
+Males engage in more physical activity per week than females.
+
+
+**Research quesion 2:**
+
+```{r}
+
+#Considering only those pregnant women who has more than two alcoholic beverages on average in the past 30 days
+
+preg_data<-filter(brfss2013,pregnant=="Yes")
+pregdrink_data<-filter(brfss2013,pregnant=="Yes" & avedrnk2>2)
+```
+
+Out of 3054 pregnant women,here are 82 women who has average number of drinks of more than 2 per day
+```{r}
+
+pregsmok_data<-filter(brfss2013,pregnant=="Yes" & X_rfsmok3=="Yes")
+```
+
+300 out of 3054 are current smokers
+
+```{r}
+pregsmokdrink<-filter(brfss2013,pregnant=="Yes" & X_rfsmok3=="Yes" & avedrnk2>2)
+```
+
+38 out of 3054 pregnant women both drink and smoke
+
+```{r}
+pregsmok_data$X_educag<-mapvalues(pregsmok_data$X_educag, from = c("Did not graduate high school", "Graduated high school","Attended college or technical school","Graduated from college or technical school"), to = c("HS not grad", "HS grad","College/tech attend","college/tech grad"))
+
+
+counts<-table(pregsmok_data$X_educag)
+par(mar=c(3,15,3,1))
+barplot(counts,las=1,horiz = TRUE,xlab="Number of pregnant smokers")
+
+```
+
+
+Educational levels and the smoking habits seem to be independent contrary to my belief that it will be the highest among those who had the lowest level of education
+
+**Research quesion 3:**
+
+```{r}
+p<-ggplot(brfss2013, aes(x=scntlwk1, y=poorhlth)) +
+    geom_point(shape=1) +    
+    geom_smooth(method=lm,   
+                se=FALSE)+ylim(0,50)+xlim(0,100)
+```
+
+A positive trend is seen between number of working hours per week and number of days in which physical or mental health not good.
+
+```{r}
+
+cor(brfss2013$scntlwk1,brfss2013$poorhlth,use="complete.obs")#Corelation
+```
+
+A very weak positive correlation
+
+
+Constructing scatterplot by age groups
+
+```{r}
+p+facet_grid(cols=vars(X_age_g))
+```
+
+Surprisingly,we notice a negative trend in the age group 25-34.This could be due to the fact that the people in this age group are younger and maybe in the higher income category,hence they could afford better medical care.
+
+```{r}
+#summary statistics
+summary(brfss2013$poorhlth)
+summary(brfss2013$scntlwk1)
+```
+
